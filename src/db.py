@@ -1,11 +1,15 @@
 from flask_sqlalchemy import SQLAlchemy
+import json
 
 db = SQLAlchemy()
 
-# Many-to-many relationship between Users and Goods
-users_goods_table = db.Table('users_goods',
+buyers_table = db.Table('buyers',
     db.Column('user_id', db.Integer, db.ForeignKey('user.id')),
-    db.Column('good_id', db.Integer, db.ForeignKey('good.id'))
+    db.Column('transaction_id', db.Integer, db.ForeignKey('transaction.id'))
+)
+sellers_table = db.Table('sellers',
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id')),
+    db.Column('transaction_id', db.Integer, db.ForeignKey('transaction.id'))
 )
 
 class User(db.Model):
@@ -13,9 +17,18 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128), nullable=False)
     netid = db.Column(db.String(128), unique=True, nullable=False)
-    rating = db.Column(db.Float, default=0.0)
-    goods = db.relationship('Good', secondary=users_goods_table, back_populates='owners')
-    transactions = db.relationship('Transaction', back_populates='user')
+    rating = db.Column(db.Float, default=5.0)
+    goods = db.relationship("Good", cascade="delete")
+    buyer_transactions = db.relationship('Transaction', secondary = buyers_table, back_populates = 'buyer')
+    seller_transactions = db.relationship('Transaction', secondary = sellers_table, back_populates = 'seller')
+
+    def __init__(self, **kwargs):
+        """
+        Initialize a User object
+        """
+        self.name = kwargs.get("name", "")
+        self.netid = kwargs.get("netid", "")
+        self.rating = 5.0
 
     def serialize(self):
         return {
@@ -23,27 +36,45 @@ class User(db.Model):
             'name': self.name,
             'netid': self.netid,
             'rating': self.rating,
-            'goods': [good.serialize_without_user() for good in self.goods],
-            'transactions': [transaction.serialize() for transaction in self.transactions]
+            'goods': [g.simple_serialize() for g in self.goods],
+            'transactions': [t.serialize() for t in self.buyer_transactions] + [t.serialize() for t in self.seller_transactions]
+        }
+    
+    def public_serialize(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'netid': self.netid,
+            'rating': self.rating,
+            'goods': [g.simple_serialize() for g in self.goods]
         }
 
 class Good(db.Model):
     __tablename__ = 'good'
     id = db.Column(db.Integer, primary_key=True)
     good_name = db.Column(db.String(128), nullable=False)
-    images = db.Column(db.PickleType)  # Storing list of images as a PickleType
-    price = db.Column(db.Integer, nullable=False)
-    owners = db.relationship('User', secondary=users_goods_table, back_populates='goods')
+    images = db.Column(db.Text, default=json.dumps([]))
+    price = db.Column(db.Integer, nullable=False) # cents
+    seller_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    
+    def __init__(self, **kwargs):
+        """
+        Initialize a Good object
+        """
+        self.good_name = kwargs.get("good_name", "")
+        self.images = kwargs.get("images", json.dumps([]))
+        self.price = kwargs.get("price", 0)
 
     def serialize(self):
         return {
             'id': self.id,
             'good_name': self.good_name,
             'images': self.images,
-            'price': self.price
+            'price': self.price,
+            'seller': User.query.filter_by(id=self.seller_id).first().public_serialize()
         }
 
-    def serialize_without_user(self):
+    def simple_serialize(self):
         return {
             'id': self.id,
             'good_name': self.good_name,
@@ -54,17 +85,26 @@ class Good(db.Model):
 class Transaction(db.Model):
     __tablename__ = 'transaction'
     id = db.Column(db.Integer, primary_key=True)
-    buyer_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    seller_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    good_id = db.Column(db.Integer, db.ForeignKey('good.id'))
     amount = db.Column(db.Integer, nullable=False)
-    timestamp = db.Column(db.DateTime, default=db.func.current_timestamp())
-    user = db.relationship('User', back_populates='transactions')
+    timestamp = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    buyer = db.relationship('User', secondary = buyers_table, back_populates = 'buyer_transactions')
+    seller = db.relationship('User', secondary = sellers_table, back_populates = 'seller_transactions')
+
+    def __init__(self, **kwargs):
+        """
+        Initialize a Transaction object
+        """
+        self.amount = kwargs.get("amount", 0)
+        self.timestamp = kwargs.get("timestamp", db.func.current_timestamp())
+        self.good_id = kwargs.get("good_id")
 
     def serialize(self):
         return {
             'id': self.id,
-            'buyer_id': self.buyer_id,
-            'seller_id': self.seller_id,
+            'good': Good.query.filter_by(id=self.good_id).first().simple_serialize(),
+            'buyer': self.buyer.public_serialize(),
+            'seller': self.seller.public_serialize(),
             'amount': self.amount,
             'timestamp': self.timestamp.isoformat()
         }
@@ -74,15 +114,17 @@ class Rating(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     value = db.Column(db.Integer, nullable=False)
     transaction_id = db.Column(db.Integer, db.ForeignKey('transaction.id'))
-    transaction = db.relationship('Transaction', back_populates='ratings')
+    
+    def __init__(self, **kwargs):
+        """
+        Initialize a Rating object
+        """
+        self.value = kwargs.get("value", 0)
+        self.transaction_id = kwargs.get("transaction_id")
 
     def serialize(self):
         return {
             'id': self.id,
             'value': self.value,
-            'transaction_id': self.transaction_id
+            'transaction': Transaction.query.filter_by(id=self.transaction_id).first().serialize()
         }
-
-# Assuming the Flask app is initialized somewhere else with the database URI,
-# you would create the tables in the database with db.create_all() after the
-# app has been configured and the context is set up.
