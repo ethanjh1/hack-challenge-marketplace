@@ -1,6 +1,0 @@
-version: "3"
-services:    
-    demo:        
-        image: ehuang2/pa5:v1
-        ports:                
-            - "8000:8000"         
