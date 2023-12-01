@@ -47,7 +47,7 @@ class User(db.Model):
             'transactions': [t.serialize() for t in self.buyer_transactions] + [t.serialize() for t in self.seller_transactions]
         }
 
-    def public_serialize(self):
+    def simple_serialize(self):
         return {
             'id': self.id,
             'name': self.name,
@@ -80,7 +80,7 @@ class Good(db.Model):
             'good_name': self.good_name,
             'image_url': self.image_url,
             'price': self.price,
-            'seller': User.query.filter_by(id=self.seller_id).first().public_serialize()
+            'seller': User.query.filter_by(id=self.seller_id).first().simple_serialize()
         }
 
     def simple_serialize(self):
@@ -116,8 +116,8 @@ class Transaction(db.Model):
         return {
             'id': self.id,
             'good': Good.query.filter_by(id=self.good_id).first().simple_serialize(),
-            'buyer': self.buyer.public_serialize(),
-            'seller': self.seller.public_serialize(),
+            'buyer': self.buyer.simple_serialize(),
+            'seller': self.seller.simple_serialize(),
             'amount': self.amount,
             'timestamp': self.timestamp.isoformat()
         }
