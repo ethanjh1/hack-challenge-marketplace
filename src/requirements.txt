@@ -18,3 +18,4 @@ Pillow==10.1.0
 python-dateutil==2.8.2
 s3transfer==0.6.0
 six==1.16.0
+python-dotenv=1.0.0
