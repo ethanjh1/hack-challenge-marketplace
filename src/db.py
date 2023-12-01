@@ -38,14 +38,15 @@ class User(db.Model):
         self.rating = 5.0
 
     def serialize(self):
+        """
+        Serialize a User object
+        """
         count = 1
         sum = self.rating
         for t in self.seller_transactions:
             if t.serialize()['rating'] is not None:
                 count += 1
                 sum += t.serialize()['rating']
-        
-
         return {
             'id': self.id,
             'name': self.name,
@@ -56,6 +57,9 @@ class User(db.Model):
         }
 
     def simple_serialize(self):
+        """
+        Serialize a User object without transactions
+        """
         return {
             'id': self.id,
             'name': self.name,
@@ -65,6 +69,9 @@ class User(db.Model):
         }
     
     def simpler_serialize(self):
+        """
+        Serialize a User object without transactions and goods
+        """
         return {
             'id': self.id,
             'name': self.name,
@@ -90,6 +97,9 @@ class Good(db.Model):
         self.seller_id = kwargs.get("seller_id", 0)
 
     def serialize(self):
+        """
+        Serialize a Good object
+        """
         return {
             'id': self.id,
             'good_name': self.good_name,
@@ -99,6 +109,9 @@ class Good(db.Model):
         }
 
     def simple_serialize(self):
+        """
+        Serialize a Good object without seller
+        """
         return {
             'id': self.id,
             'good_name': self.good_name,
@@ -133,6 +146,9 @@ class Transaction(db.Model):
         
 
     def serialize(self):
+        """
+        Serialize a Transaction object
+        """
         return {
             'id': self.id,
             'good': Good.query.filter_by(id=self.good_id).first().simple_serialize(),
