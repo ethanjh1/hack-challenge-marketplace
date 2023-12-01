@@ -33,17 +33,23 @@ with app.app_context():
 
 EXTENSIONS = ["png", "gif", "jpg", "jpeg"]
 BASE_DIR = os.getcwd()
-S3_BUCKET_NAME=os.getenv("S3_BUCKET_NAME")
+S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
 S3_BASE_URL = f"https://{S3_BUCKET_NAME}.s3.us-east-1.amazonaws.com"
 
 
 # -- HELPER FUNCTIONS ------------------------------------------------------------------------------
 
 def success_response(data, code=200):
+    """
+    Returns a JSON serialized success response with a status code
+    """
     return json.dumps(data), code
 
 
 def failure_response(data, code=404):
+    """
+    Returns a JSON serialized failure response with a status code
+    """
     return json.dumps({"error": data}), code
 
 
@@ -52,7 +58,7 @@ def create(image_data):
     Given an image in base64 encoding, does the following:
     1. Rejects the image if it is not a supported filetype
     2. Generate a random string for the image filename
-    3. Decodes the image and attempts to upload to AWS
+    3. Decodes the image and attempts to upload to AWS S3
     """
     try:
         ext = guess_extension(guess_type(image_data)[0])[1:]
@@ -93,9 +99,10 @@ def upload(img, img_filename):
         # make S3 image url public
         s3_resource = boto3.resource("s3")
         object_acl = s3_resource.ObjectAcl(S3_BUCKET_NAME, img_filename)
-        object_acl.put(ACL = "public-read")
+        object_acl.put(ACL="public-read")
         print("public")
 
+        # remove from temporary save location
         os.remove(img_temp_loc)
         return f"{S3_BASE_URL}/{img_filename}", True
     except Exception as e:
@@ -103,6 +110,9 @@ def upload(img, img_filename):
 
 
 def b64_encode(good_serialized):
+    """
+    Replaces the image URL in a serialized Good with a corresponding encoded base64 string
+    """
     image_url = good_serialized.get('image_url')
     encoded = {
         'id': good_serialized.get('id'),
@@ -114,10 +124,14 @@ def b64_encode(good_serialized):
         encoded['seller'] = good_serialized.get('seller')
     return encoded
 
+
 # -- TESTING ROUTES --------------------------------------------------------------------------------
 
 @app.route("/api/reset/", methods=["POST"])
 def reset_database():
+    """
+    Endpoint for resetting the database by dropping and recreating all tables
+    """
     db.drop_all()
     db.create_all()
     return success_response({"message": "Database reset successfully"})
@@ -148,7 +162,7 @@ def create_user():
 @app.route("/api/users/<int:user_id>/", methods=["GET"])
 def get_user(user_id):
     """
-    Endpoint for getting a specific user
+    Endpoint for getting a specific user by id
     """
     user = User.query.filter_by(id=user_id).first()
     if user is None:
@@ -259,7 +273,7 @@ def get_good(good_id):
 @app.route("/api/goods/", methods=["GET"])
 def get_goods():
     """
-    Endpoint for getting all goods on the market
+    Endpoint for getting all goods
     """
     goods = [b64_encode(g.serialize()) for g in Good.query.all()]
     return success_response({"goods": goods}, 200)
@@ -281,7 +295,7 @@ def delete_good(good_id):
 @app.route("/api/goods/<int:good_id>/", methods=["PATCH"])
 def update_good(good_id):
     """
-    Endpoint for updating a good
+    Endpoint for updating a good's name or price
     """
     body = json.loads(request.data)
     good = Good.query.filter_by(id=good_id).first()
@@ -320,7 +334,7 @@ def create_transaction():
     new_transaction = Transaction(
         amount=body.get("amount"),
         good_id=body.get("good_id"),
-        rating = body.get("rating")
+        rating=body.get("rating")
     )
     new_transaction.buyer.append(buyer)
     new_transaction.seller.append(seller)
@@ -343,6 +357,8 @@ def update_rating(transaction_id):
     transaction.rating = body.get("rating")
     db.session.commit()
     return success_response(transaction.serialize(), 200)
+
+
 # # -- RATING ROUTES -------------------------------------------------------------------------------
 
 # @app.route("/api/rating/<int:transaction_id>/", methods=["POST"])
