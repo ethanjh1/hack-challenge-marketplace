@@ -3,7 +3,7 @@ from db import db
 from db import User
 from db import Good
 from db import Transaction
-from db import Rating
+# from db import Rating
 from flask import Flask
 from flask import request
 
@@ -290,8 +290,9 @@ def create_transaction():
     """
     Endpoint for creating a transaction
     """
+    # make sure only one transaction per good_id
     body = json.loads(request.data)
-    if not ("amount" in body and "good_id" in body):
+    if not ("amount" in body and "good_id" in body and "seller_id" in body and "buyer_id" in body):
         return failure_response("Incomplete transaction information", 400)
     good = Good.query.filter_by(id=body.get("good_id")).first()
     if good is None:
@@ -304,7 +305,8 @@ def create_transaction():
         return failure_response("Seller not found", 404)
     new_transaction = Transaction(
         amount=body.get("amount"),
-        good_id=body.get("good_id")
+        good_id=body.get("good_id"),
+        rating = body.get("rating")
     )
     new_transaction.buyer.append(buyer)
     new_transaction.seller.append(seller)
@@ -313,26 +315,40 @@ def create_transaction():
     return success_response(new_transaction.serialize(), 201)
 
 
-# -- RATING ROUTES -------------------------------------------------------------------------------
-
-@app.route("/api/rating/<int:transaction_id>/", methods=["POST"])
-def create_rating():
+@app.route("/api/transactions/<int:transaction_id>/", methods=["PATCH"])
+def update_rating(transaction_id):
     """
-    Endpoint for creating a rating
+    Endpoint for updating a rating
     """
     body = json.loads(request.data)
-    if not ("value" in body and "transaction_id" in body):
-        return failure_response("Incomplete rating information", 400)
-    transaction = Transaction.query.filter_by(id=body.get("transaction_id")).first()
+    transaction = Transaction.query.filter_by(id=transaction_id).first()
     if transaction is None:
-        return failure_response("Transaction not found", 404)
-    new_rating = Rating(
-        value=body.get("value"),
-        transaction_id=body.get("transaction_id")
-    )
-    db.session.add(new_rating)
+        return failure_response("Good not found", 404)
+    if "rating" not in body:
+        return failure_response("No rating value given", 400)
+    transaction.rating = body.get("rating")
     db.session.commit()
-    return success_response(new_rating.serialize(), 201)
+    return success_response(transaction.serialize(), 201)
+# # -- RATING ROUTES -------------------------------------------------------------------------------
+
+# @app.route("/api/rating/<int:transaction_id>/", methods=["POST"])
+# def create_rating(transaction_id):
+#     """
+#     Endpoint for creating a rating
+#     """
+#     body = json.loads(request.data)
+#     if not ("value" in body):
+#         return failure_response("Incomplete rating information", 400)
+#     transaction = Transaction.query.filter_by(id=transaction_id).first()
+#     if transaction is None:
+#         return failure_response("Transaction not found", 404)
+#     new_rating = Rating(
+#         value=body.get("value"),
+#         transaction_id = transaction_id
+#     )
+#     db.session.add(new_rating)
+#     db.session.commit()
+#     return success_response(new_rating.serialize(), 201)
 
 
 if __name__ == "__main__":

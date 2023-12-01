@@ -38,11 +38,19 @@ class User(db.Model):
         self.rating = 5.0
 
     def serialize(self):
+        count = 1
+        sum = self.rating
+        for t in self.seller_transactions:
+            if t.serialize()['rating'] is not None:
+                count += 1
+                sum += t.serialize()['rating']
+        
+
         return {
             'id': self.id,
             'name': self.name,
             'netid': self.netid,
-            'rating': self.rating,
+            'rating': sum / count,
             'goods': [g.simple_serialize() for g in self.goods],
             'transactions': [t.serialize() for t in self.buyer_transactions] + [t.serialize() for t in self.seller_transactions]
         }
@@ -55,7 +63,14 @@ class User(db.Model):
             'rating': self.rating,
             'goods': [g.simple_serialize() for g in self.goods]
         }
-
+    
+    def simpler_serialize(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'netid': self.netid,
+            'rating': self.rating
+        }
 
 class Good(db.Model):
     __tablename__ = 'good'
@@ -97,6 +112,7 @@ class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     good_id = db.Column(db.Integer, db.ForeignKey('good.id'))
     amount = db.Column(db.Integer, nullable=False)
+    rating = db.Column(db.Integer, nullable=True)
     timestamp = db.Column(db.DateTime, nullable=False,
                           default=db.func.current_timestamp())
     buyer = db.relationship('User', secondary=buyers_table,
@@ -108,37 +124,42 @@ class Transaction(db.Model):
         """
         Initialize a Transaction object
         """
+        self.buyer_id = kwargs.get("buyer_id")
+        self.seller_id = kwargs.get("seller_id")
+        self.good_id = kwargs.get("good_id")
         self.amount = kwargs.get("amount", 0)
         self.timestamp = kwargs.get("timestamp", db.func.current_timestamp())
-        self.good_id = kwargs.get("good_id")
+        self.rating = kwargs.get("rating")
+        
 
     def serialize(self):
         return {
             'id': self.id,
             'good': Good.query.filter_by(id=self.good_id).first().simple_serialize(),
-            'buyer': self.buyer.simple_serialize(),
-            'seller': self.seller.simple_serialize(),
+            'buyer': [buyer.simpler_serialize() for buyer in self.buyer],
+            'seller': [seller.simpler_serialize() for seller in self.seller],
             'amount': self.amount,
-            'timestamp': self.timestamp.isoformat()
+            'timestamp': self.timestamp.isoformat(),
+            'rating': self.rating
         }
 
 
-class Rating(db.Model):
-    __tablename__ = 'rating'
-    id = db.Column(db.Integer, primary_key=True)
-    value = db.Column(db.Integer, nullable=False)
-    transaction_id = db.Column(db.Integer, db.ForeignKey('transaction.id'))
+# class Rating(db.Model):
+#     __tablename__ = 'rating'
+#     id = db.Column(db.Integer, primary_key=True)
+#     value = db.Column(db.Integer, nullable=False)
+#     transaction_id = db.Column(db.Integer, db.ForeignKey('transaction.id'))
 
-    def __init__(self, **kwargs):
-        """
-        Initialize a Rating object
-        """
-        self.value = kwargs.get("value", 0)
-        self.transaction_id = kwargs.get("transaction_id")
+#     def __init__(self, **kwargs):
+#         """
+#         Initialize a Rating object
+#         """
+#         self.value = kwargs.get("value", 0)
+#         self.transaction_id = kwargs.get("transaction_id")
 
-    def serialize(self):
-        return {
-            'id': self.id,
-            'value': self.value,
-            'transaction': Transaction.query.filter_by(id=self.transaction_id).first().serialize()
-        }
+#     def serialize(self):
+#         return {
+#             'id': self.id,
+#             'value': self.value,
+#             'transaction': Transaction.query.filter_by(id=self.transaction_id).first().serialize()
+#         }
