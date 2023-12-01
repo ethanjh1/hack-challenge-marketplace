@@ -30,7 +30,7 @@ db.init_app(app)
 with app.app_context():
     db.create_all()
 
-EXTENSIONS = ["png", "gif", "jpg", "jpg"]
+EXTENSIONS = ["png", "gif", "jpg", "jpeg"]
 BASE_DIR = os.getcwd()
 S3_BUCKET_NAME = os.environ.get("S3_BUCKET_NAME")
 S3_BASE_URL = f"https://{S3_BUCKET_NAME}.s3.us-east-1.amazonaws.com"
@@ -54,7 +54,7 @@ def create(image_data):
     3. Decodes the image and attempts to upload to AWS
     """
     try:
-        ext = guess_extension(guess_type(image_data)[0])[1]
+        ext = guess_extension(guess_type(image_data)[0])[1:]
         if ext not in EXTENSIONS:
             raise Exception(f"Extension {ext} is not valid")
         salt = "".join(
@@ -63,31 +63,41 @@ def create(image_data):
             )
             for _ in range(16)
         )
-        img_str = re.sub("^data:image./+;base64,", "", image_data)
+        img_str = re.sub(r"^data:image\/[^;]+;base64,", "", image_data)
         img_data = base64.b64decode(img_str)
         img = Image.open(BytesIO(img_data))
+        img.verify()
         img_filename = f"{salt}.{ext}"
         return upload(img, img_filename)
     except Exception as e:
-        print(f"Error when creating image: {e}")
+        return f"Error when creating image: {e}", False
 
 
 def upload(img, img_filename):
+    """
+    Attempts to upload image to the specified bucket
+    """
     try:
+        # temporarily save on server
         img_temp_loc = f"{BASE_DIR}/{img_filename}"
         img.save(img_temp_loc)
+        print("temp saved")
 
+        # upload image to S3
         s3_client = boto3.client("s3")
         s3_client.upload_file(img_temp_loc, S3_BUCKET_NAME, img_filename)
+        print("uploaded")
 
+        # make S3 image url public
         s3_resource = boto3.resource("s3")
-        object_acl = s3_resource.ObjectACL(S3_BUCKET_NAME, img_filename)
+        object_acl = s3_resource.ObjectAcl(S3_BUCKET_NAME, img_filename)
         object_acl.put(ACL = "public-read")
+        print("public")
 
         os.remove(img_temp_loc)
-        return img_filename
+        return f"{S3_BASE_URL}/{img_filename}", True
     except Exception as e:
-        print(f"Error when uploading image: {e}")
+        return f"Error when uploading image: {e}", False
 
 
 # -- TESTING ROUTES --------------------------------------------------------------------------------
@@ -207,6 +217,9 @@ def create_good():
     seller = User.query.filter_by(id=body.get("seller_id")).first()
     if seller is None:
         return failure_response("Seller not found", 404)
+    # image_url, status = create(body.get("image"))
+    # if not status:
+    #     return failure_response(image_url, 400)
     new_good = Good(
         good_name=body.get("good_name"),
         image_url=body.get("image"),
