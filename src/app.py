@@ -18,6 +18,7 @@ from PIL import Image
 import random
 import re
 import string
+import requests
 
 app = Flask(__name__)
 db_filename = "marketplace.db"
@@ -100,6 +101,18 @@ def upload(img, img_filename):
     except Exception as e:
         return f"Error when uploading image: {e}", False
 
+
+def b64_encode(good_serialized):
+    image_url = good_serialized.get('image_url')
+    encoded = {
+        'id': good_serialized.get('id'),
+        'good_name': good_serialized.get('good_name'),
+        'image': base64.b64encode(requests.get(image_url).content).decode('utf-8'),
+        'price': good_serialized.get('price')
+    }
+    if good_serialized.get('seller') is not None:
+        encoded['seller'] = good_serialized.get('seller')
+    return encoded
 
 # -- TESTING ROUTES --------------------------------------------------------------------------------
 
@@ -229,7 +242,7 @@ def create_good():
     )
     db.session.add(new_good)
     db.session.commit()
-    return success_response(new_good.serialize(), 201)
+    return success_response(b64_encode(new_good.serialize()), 201)
 
 
 @app.route("/api/goods/<int:good_id>/", methods=["GET"])
@@ -240,7 +253,7 @@ def get_good(good_id):
     good = Good.query.filter_by(id=good_id).first()
     if good is None:
         return failure_response("Good not found", 404)
-    return success_response(good.simple_serialize(), 200)
+    return success_response(b64_encode(good.serialize()), 200)
 
 
 @app.route("/api/goods/", methods=["GET"])
@@ -248,7 +261,7 @@ def get_goods():
     """
     Endpoint for getting all goods on the market
     """
-    goods = [g.serialize() for g in Good.query.all()]
+    goods = [b64_encode(g.serialize()) for g in Good.query.all()]
     return success_response({"goods": goods}, 200)
 
 
@@ -262,7 +275,7 @@ def delete_good(good_id):
         return failure_response("Good not found", 404)
     db.session.delete(good)
     db.session.commit()
-    return success_response(good.serialize(), 200)
+    return success_response(b64_encode(good.serialize()), 200)
 
 
 @app.route("/api/goods/<int:good_id>/", methods=["PATCH"])
@@ -281,7 +294,7 @@ def update_good(good_id):
     if "price" in body:
         good.price = body.get("price")
     db.session.commit()
-    return success_response(good.serialize(), 200)
+    return success_response(b64_encode(good.serialize()), 200)
 
 
 # -- TRANSACTION ROUTES -------------------------------------------------------------------------------

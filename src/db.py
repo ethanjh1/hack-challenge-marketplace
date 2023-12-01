@@ -95,7 +95,7 @@ class Good(db.Model):
             'good_name': self.good_name,
             'image_url': self.image_url,
             'price': self.price,
-            'seller': User.query.filter_by(id=self.seller_id).first().simple_serialize()
+            'seller': User.query.filter_by(id=self.seller_id).first().simpler_serialize()
         }
 
     def simple_serialize(self):
