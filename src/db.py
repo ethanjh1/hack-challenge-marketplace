@@ -53,7 +53,7 @@ class Good(db.Model):
     __tablename__ = 'good'
     id = db.Column(db.Integer, primary_key=True)
     good_name = db.Column(db.String(128), nullable=False)
-    images = db.Column(db.Text, default=json.dumps([]))
+    images = db.Column(db.LargeBinary)
     price = db.Column(db.Integer, nullable=False) # cents
     seller_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     
@@ -64,6 +64,7 @@ class Good(db.Model):
         self.good_name = kwargs.get("good_name", "")
         self.images = kwargs.get("images", json.dumps([]))
         self.price = kwargs.get("price", 0)
+        self.seller_id = kwargs.get("seller_id", 0)
 
     def serialize(self):
         return {
