@@ -32,7 +32,7 @@ with app.app_context():
 
 EXTENSIONS = ["png", "gif", "jpg", "jpeg"]
 BASE_DIR = os.getcwd()
-S3_BUCKET_NAME = os.environ.get("S3_BUCKET_NAME")
+S3_BUCKET_NAME=os.getenv("S3_BUCKET_NAME")
 S3_BASE_URL = f"https://{S3_BUCKET_NAME}.s3.us-east-1.amazonaws.com"
 
 
@@ -66,7 +66,6 @@ def create(image_data):
         img_str = re.sub(r"^data:image\/[^;]+;base64,", "", image_data)
         img_data = base64.b64decode(img_str)
         img = Image.open(BytesIO(img_data))
-        img.verify()
         img_filename = f"{salt}.{ext}"
         return upload(img, img_filename)
     except Exception as e:
@@ -85,6 +84,8 @@ def upload(img, img_filename):
 
         # upload image to S3
         s3_client = boto3.client("s3")
+        # print(S3_BUCKET_NAME)
+        print(os.environ)
         s3_client.upload_file(img_temp_loc, S3_BUCKET_NAME, img_filename)
         print("uploaded")
 
@@ -217,12 +218,12 @@ def create_good():
     seller = User.query.filter_by(id=body.get("seller_id")).first()
     if seller is None:
         return failure_response("Seller not found", 404)
-    # image_url, status = create(body.get("image"))
-    # if not status:
-    #     return failure_response(image_url, 400)
+    image_url, status = create(body.get("image"))
+    if not status:
+        return failure_response(image_url, 400)
     new_good = Good(
         good_name=body.get("good_name"),
-        image_url=body.get("image"),
+        image_url=image_url,
         price=body.get("price"),
         seller_id=body.get("seller_id")
     )
