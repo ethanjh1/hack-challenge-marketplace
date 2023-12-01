@@ -113,7 +113,7 @@ def create_good():
    """
    body = json.loads(request.data)
    if "name" not in body or "netid" not in body:
-      return failure_response("Incomplete user information", 400)
+      return failure_response("Incomplete information about good", 400)
    new_good = Good(
       good_name = body.get("good_name"),
       images = body.get("images"),
@@ -123,21 +123,67 @@ def create_good():
    )
    existing_user = User.query.filter_by(netid = body.get("netid")).first()
    if existing_user:
-      return failure_response("User already exists", 400)
-   db.session.add(new_user)
+      return failure_response("Good already exists", 400)
+   db.session.add(new_good)
    db.session.commit()
-   return success_response(new_user.serialize(), 201)
+   return success_response(new_good.serialize(), 201)
 
 
-@app.route("/api/users/<int:user_id>/", methods = ["GET"])
-def get_good(user_id):
+@app.route("/api/goods/<int:good_id>/", methods = ["GET"])
+def get_good(good_id):
   """
   Endpoint for getting a specific course
   """
-  user = User.query.filter_by(id = user_id).first()
-  if user is None:
-     return failure_response("User not found!", 404)
-  return success_response(user.public_serialize(), 200)
+  good = Good.query.filter_by(id = good_id).first()
+  if good is None:
+     return failure_response("Good not found!", 404)
+  return success_response(good.public_serialize(), 200)
+
+
+@app.route("/api/goods/", methods = ["GET"])
+def get_goods():
+    """
+    Endpoint for getting all goods
+    """
+    goods = []
+
+    for good in Good.query.all():
+      goods.append(good.serialize())
+
+    return success_response({"Goods": goods}, 200)
+
+
+@app.route("/api/goods/<int:good_id>/", methods = ["DELETE"])
+def delete_good(good_id):
+  """
+  Endpoint for deleting a specific good
+  """
+  good = Good.query.filter_by(id = good_id).first()
+  if good is None:
+     return failure_response("Good not found!", 404)
+  db.session.delete(good)
+  db.session.commit()
+  return success_response(good.serialize(), 200)
+
+
+@app.route("/api/goods/<int:good_id>/", methods = ["PATCH"])
+def update_good(good_id):
+   """
+   Endpoint for updating a good
+   """
+   body = json.loads(request.data)
+   good = Good.query.filter_by(id = good_id).first()
+   if good is None:
+     return failure_response("Good not found!", 404)
+   if "good_name" not in body and "price" not in body:
+     return failure_response("Incomplete user information", 400)
+   if "good_name" in body:
+        good.good_name = body.get("good_name")
+   if "price" in body:
+      good.price = body.get("price")
+   db.session.commit()
+   return success_response(good.serialize(), 201)
+
 
 if __name__ == "__main__":
    app.run(host="0.0.0.0", port=8000, debug = True)
