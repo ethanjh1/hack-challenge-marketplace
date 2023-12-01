@@ -202,7 +202,7 @@ def update_user(user_id):
         return failure_response("Incomplete user information", 400)
     user.name = body.get("name")
     db.session.commit()
-    return success_response(user.serialize(), 201)
+    return success_response(user.serialize(), 200)
 
 
 # -- GOOD ROUTES -----------------------------------------------------------------------------------
@@ -281,7 +281,7 @@ def update_good(good_id):
     if "price" in body:
         good.price = body.get("price")
     db.session.commit()
-    return success_response(good.serialize(), 201)
+    return success_response(good.serialize(), 200)
 
 
 # -- TRANSACTION ROUTES -------------------------------------------------------------------------------
@@ -329,7 +329,7 @@ def update_rating(transaction_id):
         return failure_response("No rating value given", 400)
     transaction.rating = body.get("rating")
     db.session.commit()
-    return success_response(transaction.serialize(), 201)
+    return success_response(transaction.serialize(), 200)
 # # -- RATING ROUTES -------------------------------------------------------------------------------
 
 # @app.route("/api/rating/<int:transaction_id>/", methods=["POST"])
