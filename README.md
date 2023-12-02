@@ -5,3 +5,5 @@ This repository contains the back-end code for a mobile marketplace app for coll
 ## API Specification
 
 https://docs.google.com/document/d/1pCBlVOewwkyrxgJmz6XI9MwRWVub3fd3NoVURZJ97ZY/edit?usp=sharing
+
+## Features
